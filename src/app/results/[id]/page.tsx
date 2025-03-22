@@ -22,7 +22,14 @@ interface ScanResultType {
   }>;
 }
 
-export default function ResultsPage({ params }: { params: { id: string } }) {
+// Define proper params type
+interface ResultsPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function ResultsPage({ params }: ResultsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [scanResult, setScanResult] = useState<ScanResultType | null>(null);
   const [activeTab, setActiveTab] = useState('overview');

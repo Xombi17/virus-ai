@@ -1,6 +1,6 @@
 'use client';
 
-import { Parallax, Background } from 'react-parallax';
+import { Parallax } from 'react-parallax';
 
 interface ParallaxSectionProps {
   title: string;
