@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const FileUpload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -129,7 +130,7 @@ const FileUpload = () => {
   return (
     <div className="w-full max-w-3xl mx-auto">
       <form onSubmit={handleSubmit}>
-        <div 
+        <motion.div 
           className={`border-2 border-dashed rounded-lg p-10 text-center transition-all ${
             isDragging 
               ? 'border-secondary bg-secondary/10' 
@@ -142,6 +143,10 @@ const FileUpload = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => !isUploading && document.getElementById('file-input')?.click()}
+          whileHover={!isUploading ? { scale: 1.01, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" } : {}}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
           <input
             id="file-input"
@@ -151,78 +156,150 @@ const FileUpload = () => {
             disabled={isUploading}
           />
           
-          {isUploading ? (
-            <div className="py-8">
-              <div className="text-4xl mb-4 animate-pulse">🔍</div>
-              <h3 className="text-xl font-semibold mb-4">
-                Uploading and preparing for scan...
-              </h3>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full mb-2 overflow-hidden">
-                <div 
-                  className="bg-secondary h-full rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {uploadProgress}% complete
-              </p>
-            </div>
-          ) : (
-            <>
-              {!file ? (
-                <div className="py-6">
-                  <div className="text-6xl mb-4">{getFileIcon()}</div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Drag & Drop Files Here
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    or click to browse (files up to 1GB)
-                  </p>
-                  {error && (
-                    <div className="text-red-600 dark:text-red-400 mt-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 rounded-lg inline-block">
-                      <p>{error}</p>
-                    </div>
-                  )}
+          <AnimatePresence mode="wait">
+            {isUploading ? (
+              <motion.div 
+                className="py-8"
+                key="uploading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <motion.div 
+                  className="text-6xl mb-4"
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                >
+                  🔍
+                </motion.div>
+                <h3 className="text-2xl font-bold mb-4">
+                  Uploading and preparing for scan...
+                </h3>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full mb-2 overflow-hidden">
+                  <motion.div 
+                    className="bg-secondary h-full rounded-full"
+                    initial={{ width: "0%" }}
+                    animate={{ width: `${uploadProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
                 </div>
-              ) : (
-                <div className="py-6">
-                  <div className="text-6xl mb-4">{getFileIcon()}</div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    {file.name}
-                  </h3>
-                  <div className="inline-flex items-center bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg text-sm text-gray-700 dark:text-gray-300">
-                    <span className="mr-2">{file.type || 'Unknown type'}</span>
-                    <span>•</span>
-                    <span className="ml-2">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {uploadProgress}% complete
+                </p>
+              </motion.div>
+            ) : (
+              <>
+                {!file ? (
+                  <motion.div 
+                    className="py-10"
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <motion.div 
+                      className="text-8xl mb-6"
+                      animate={{ y: [0, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                    >
+                      {getFileIcon()}
+                    </motion.div>
+                    <h3 className="text-2xl font-bold mb-4">
+                      Drag & Drop Files Here
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                      or click to browse (files up to 1GB)
+                    </p>
+                    
+                    <AnimatePresence>
+                      {error && (
+                        <motion.div 
+                          className="text-red-600 dark:text-red-400 mt-4 px-6 py-3 bg-red-50 dark:bg-red-900/30 rounded-lg inline-block"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                        >
+                          <p>{error}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    className="py-10"
+                    key="file-selected"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <motion.div 
+                      className="text-8xl mb-6"
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 5, 0, -5, 0],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      {getFileIcon()}
+                    </motion.div>
+                    <h3 className="text-2xl font-bold mb-4">
+                      {file.name}
+                    </h3>
+                    <motion.div 
+                      className="inline-flex items-center bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-300"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <span className="mr-2">{file.type || 'Unknown type'}</span>
+                      <span>•</span>
+                      <span className="ml-2">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </AnimatePresence>
+        </motion.div>
         
-        {file && !isUploading && (
-          <div className="mt-6 text-center">
-            <button
-              type="submit"
-              disabled={isUploading}
-              className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-full text-lg transition-colors shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        <AnimatePresence>
+          {file && !isUploading && (
+            <motion.div 
+              className="mt-8 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              Scan Now
-            </button>
-            <button
-              type="button"
-              onClick={() => setFile(null)}
-              className="ml-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:underline focus:outline-none"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+              <motion.button
+                type="submit"
+                disabled={isUploading}
+                className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Scan Now
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={() => setFile(null)}
+                className="ml-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:underline focus:outline-none"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <motion.div 
+          className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+        >
           By uploading a file, you agree to our <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
-        </div>
+        </motion.div>
       </form>
     </div>
   );
