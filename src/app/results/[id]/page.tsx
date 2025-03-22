@@ -10,6 +10,9 @@ interface Detection {
   name: string;
   type: string;
   confidence: number;
+  risk?: string;
+  details?: string;
+  count?: number;
 }
 
 interface AIAnalysis {
@@ -32,7 +35,6 @@ interface ScanResult {
   detectionRatio?: string;
   detections: Detection[];
   aiAnalysis: AIAnalysis;
-  threats?: any[]; // For compatibility with older data structure
 }
 
 // Function to format bytes to a human-readable format
@@ -76,51 +78,19 @@ export default function ResultsPage() {
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        // In a real app, you would fetch from your API
-        // For demo, we'll simulate the API call with a delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // For demo purposes, we'll use mockup data
-        // In a production environment, this would be an API call
-        // const response = await fetch(`/api/scan/results/${scanId}`);
-        // if (!response.ok) throw new Error('Failed to fetch scan results');
-        // const data = await response.json();
+        setLoading(true);
         
-        // Mock data based on scanId
-        const mockResults: ScanResult = {
-          scanId,
-          fileName: 'suspicious-invoice.pdf',
-          fileSize: 2457600, // 2.4MB
-          fileType: 'application/pdf',
-          scanDate: new Date().toISOString(),
-          threatLevel: Math.random() > 0.7 ? 'high' : Math.random() > 0.4 ? 'medium' : 'none',
-          scanStatus: 'completed',
-          detections: [
-            { name: 'Trojan.PDF.Agent', type: 'malware', confidence: 0.94 },
-            { name: 'Suspicious.PDF.Exploit', type: 'suspicious', confidence: 0.86 },
-            { name: 'Phishing.Credential.Stealer', type: 'phishing', confidence: 0.78 },
-          ],
-          aiAnalysis: {
-            summary: 'This file contains obfuscated JavaScript that attempts to exploit PDF vulnerabilities to execute remote code. It also includes suspicious credential harvesting forms that match known phishing patterns.',
-            riskFactors: [
-              'Obfuscated JavaScript',
-              'Hidden form fields for credential collection',
-              'Remote URL connections to known malicious domains',
-              'PDF structure anomalies'
-            ]
-          }
-        };
-
-        // If we have a clean result, adjust the detections
-        if (mockResults.threatLevel === 'none' || mockResults.threatLevel === 'clean') {
-          mockResults.detections = [];
-          mockResults.aiAnalysis = {
-            summary: 'Our AI analysis did not detect any suspicious patterns or known malware signatures in this file. The behavior and structure appear to be normal for this file type.',
-            riskFactors: []
-          };
+        // Fetch the actual scan results from our API
+        const response = await fetch(`/api/scan/results/${scanId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch scan results: ${response.status} ${response.statusText}`);
         }
-
-        setResults(mockResults);
+        
+        const data = await response.json();
+        
+        // Set the results
+        setResults(data);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching results:', err);
@@ -249,6 +219,9 @@ export default function ResultsPage() {
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Threat Name</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Confidence</th>
+                            {results.detections.some(d => d.details) && (
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Details</th>
+                            )}
                           </tr>
                         </thead>
                         <tbody className="bg-primary-light/10 divide-y divide-gray-700">
@@ -271,6 +244,11 @@ export default function ResultsPage() {
                                   <span className="text-sm text-gray-300">{Math.round(detection.confidence * 100)}%</span>
                                 </div>
                               </td>
+                              {results.detections.some(d => d.details) && (
+                                <td className="px-6 py-4 text-sm text-gray-300">
+                                  {detection.details || '—'}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -318,6 +296,51 @@ export default function ResultsPage() {
                     )}
                   </div>
                 </div>
+                
+                {/* Additional details if available */}
+                {(results.fileMd5 || results.fileSha1 || results.fileSha256) && (
+                  <div className="mb-8">
+                    <h2 className="text-xl font-semibold mb-4 text-white flex items-center">
+                      <span className="inline-block mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-secondary" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                      File Details
+                    </h2>
+                    
+                    <div className="p-6 rounded-lg border border-gray-700 bg-primary-dark/40 mb-4 overflow-x-auto">
+                      <table className="min-w-full">
+                        <tbody className="divide-y divide-gray-700">
+                          {results.scanDuration && (
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-400 w-1/4">Scan Duration</td>
+                              <td className="px-4 py-3 text-sm text-white">{results.scanDuration}</td>
+                            </tr>
+                          )}
+                          {results.fileMd5 && (
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-400 w-1/4">MD5</td>
+                              <td className="px-4 py-3 text-sm text-white font-mono">{results.fileMd5}</td>
+                            </tr>
+                          )}
+                          {results.fileSha1 && (
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-400 w-1/4">SHA-1</td>
+                              <td className="px-4 py-3 text-sm text-white font-mono">{results.fileSha1}</td>
+                            </tr>
+                          )}
+                          {results.fileSha256 && (
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-400 w-1/4">SHA-256</td>
+                              <td className="px-4 py-3 text-sm text-white font-mono">{results.fileSha256}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">

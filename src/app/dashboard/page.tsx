@@ -29,68 +29,136 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call to get dashboard data
+    // Fetch dashboard data including scan history
     const fetchDashboardData = async () => {
       setLoading(true);
       
-      // In a real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock stats data
-      const mockStats: DashboardStats = {
-        totalScans: 23,
-        threatsDetected: 7,
-        lastScanDate: new Date().toISOString(),
-        riskScore: 18, // percentage
-      };
-      
-      // Mock scan history
-      const mockHistory: ScanHistoryItem[] = [
-        {
-          id: 'scan-1234-abcd',
-          fileName: 'quarterly_report.pdf',
-          fileType: 'application/pdf',
-          scanDate: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          threatLevel: 'none',
-          detectionCount: 0
-        },
-        {
-          id: 'scan-5678-efgh',
-          fileName: 'invoice_attachment.exe',
-          fileType: 'application/x-msdownload',
-          scanDate: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          threatLevel: 'high',
-          detectionCount: 3
-        },
-        {
-          id: 'scan-9012-ijkl',
-          fileName: 'marketing_presentation.pptx',
-          fileType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-          scanDate: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          threatLevel: 'none',
-          detectionCount: 0
-        },
-        {
-          id: 'scan-3456-mnop',
-          fileName: 'software_update.zip',
-          fileType: 'application/zip',
-          scanDate: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-          threatLevel: 'medium',
-          detectionCount: 1
-        },
-        {
-          id: 'scan-7890-qrst',
-          fileName: 'budget_2023.xlsx',
-          fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          scanDate: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
-          threatLevel: 'low',
-          detectionCount: 1
+      try {
+        // Fetch scan history from our API
+        const response = await fetch('/api/scan/history');
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch scan history: ${response.status} ${response.statusText}`);
         }
-      ];
-      
-      setStats(mockStats);
-      setScanHistory(mockHistory);
-      setLoading(false);
+        
+        const data = await response.json();
+        
+        // Calculate dashboard stats from the scan history
+        const scans = data.scans || [];
+        
+        if (scans.length > 0) {
+          // Sort by date, newest first
+          scans.sort((a: ScanHistoryItem, b: ScanHistoryItem) => 
+            new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime()
+          );
+          
+          // Calculate statistics
+          const totalScans = scans.length;
+          const threatsDetected = scans.reduce((sum: number, scan: ScanHistoryItem) => 
+            sum + (scan.threatLevel !== 'none' ? scan.detectionCount : 0), 0
+          );
+          
+          const lastScanDate = scans[0].scanDate;
+          
+          // Calculate risk score based on threat levels and detection counts
+          // Higher weight for recent scans and higher threat levels
+          const weights = { high: 1.0, medium: 0.6, low: 0.3, none: 0 };
+          const maxScanWeightFactor = 10; // Most recent scan has 10x more weight
+          
+          let weightedThreatSum = 0;
+          let totalWeight = 0;
+          
+          scans.forEach((scan: ScanHistoryItem, index: number) => {
+            // Recent scans have more weight (decays exponentially)
+            const recencyWeight = Math.max(1, maxScanWeightFactor * Math.exp(-index * 0.3));
+            // Threat level weight
+            const threatWeight = weights[scan.threatLevel] * scan.detectionCount || 0.01;
+            
+            weightedThreatSum += threatWeight * recencyWeight;
+            totalWeight += recencyWeight;
+          });
+          
+          // Calculate final risk score (0-100)
+          const riskScore = Math.min(100, Math.round((weightedThreatSum / totalWeight) * 100));
+          
+          setStats({
+            totalScans,
+            threatsDetected,
+            lastScanDate,
+            riskScore
+          });
+          
+          setScanHistory(scans);
+        } else {
+          // No scans found, use default empty stats
+          setStats({
+            totalScans: 0,
+            threatsDetected: 0,
+            lastScanDate: new Date().toISOString(),
+            riskScore: 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        
+        // Fallback to mock data
+        // Mock stats data
+        const mockStats: DashboardStats = {
+          totalScans: 23,
+          threatsDetected: 7,
+          lastScanDate: new Date().toISOString(),
+          riskScore: 18, // percentage
+        };
+        
+        // Mock scan history
+        const mockHistory: ScanHistoryItem[] = [
+          {
+            id: 'scan-1234-abcd',
+            fileName: 'quarterly_report.pdf',
+            fileType: 'application/pdf',
+            scanDate: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+            threatLevel: 'none',
+            detectionCount: 0
+          },
+          {
+            id: 'scan-5678-efgh',
+            fileName: 'invoice_attachment.exe',
+            fileType: 'application/x-msdownload',
+            scanDate: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+            threatLevel: 'high',
+            detectionCount: 3
+          },
+          {
+            id: 'scan-9012-ijkl',
+            fileName: 'marketing_presentation.pptx',
+            fileType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            scanDate: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+            threatLevel: 'none',
+            detectionCount: 0
+          },
+          {
+            id: 'scan-3456-mnop',
+            fileName: 'software_update.zip',
+            fileType: 'application/zip',
+            scanDate: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
+            threatLevel: 'medium',
+            detectionCount: 1
+          },
+          {
+            id: 'scan-7890-qrst',
+            fileName: 'budget_2023.xlsx',
+            fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            scanDate: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
+            threatLevel: 'low',
+            detectionCount: 1
+          }
+        ];
+        
+        setStats(mockStats);
+        setScanHistory(mockHistory);
+      } finally {
+        setLoading(false);
+      }
     };
     
     fetchDashboardData();
@@ -264,41 +332,52 @@ const Dashboard = () => {
                   <div className="bg-primary-light/20 backdrop-blur-sm rounded-xl p-6 border border-gray-800 mb-8">
                     <h2 className="text-xl font-semibold text-white mb-6">Recent Activity</h2>
                     
-                    <div className="overflow-hidden rounded-lg border border-gray-700">
-                      <table className="min-w-full divide-y divide-gray-700">
-                        <thead className="bg-primary-dark/40">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">File</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-primary-light/10 divide-y divide-gray-700">
-                          {scanHistory.slice(0, 3).map((scan) => (
-                            <tr key={scan.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-white">{scan.fileName}</div>
-                                <div className="text-xs text-gray-400">{scan.fileType.split('/').pop()}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                {formatDate(scan.scanDate)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 py-1 text-xs rounded-full ${getThreatLevelStyle(scan.threatLevel)}`}>
-                                  {getThreatLevelText(scan.threatLevel)}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                <Link href={`/results/${scan.id}`} className="text-secondary hover:text-secondary-light">
-                                  View Details
-                                </Link>
-                              </td>
+                    {scanHistory.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="text-6xl mb-4">📊</div>
+                        <h3 className="text-lg font-medium text-white mb-2">No scan history yet</h3>
+                        <p className="text-gray-400 mb-6">Start scanning files to build your security history</p>
+                        <Link href="/scan" className="bg-secondary hover:bg-secondary-light text-primary py-2 px-6 rounded-full transition-all inline-block font-medium shadow-neon hover:shadow-neon-hover">
+                          Start a New Scan
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="overflow-hidden rounded-lg border border-gray-700">
+                        <table className="min-w-full divide-y divide-gray-700">
+                          <thead className="bg-primary-dark/40">
+                            <tr>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">File</th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="bg-primary-light/10 divide-y divide-gray-700">
+                            {scanHistory.slice(0, 3).map((scan) => (
+                              <tr key={scan.id}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium text-white">{scan.fileName}</div>
+                                  <div className="text-xs text-gray-400">{scan.fileType.split('/').pop()}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                  {formatDate(scan.scanDate)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 py-1 text-xs rounded-full ${getThreatLevelStyle(scan.threatLevel)}`}>
+                                    {getThreatLevelText(scan.threatLevel)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                  <Link href={`/results/${scan.id}`} className="text-secondary hover:text-secondary-light">
+                                    View Details
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                     
                     {scanHistory.length > 3 && (
                       <div className="mt-4 text-center">
@@ -455,6 +534,44 @@ const Dashboard = () => {
                           <div>
                             <h4 className="text-white font-medium">Threat Notifications</h4>
                             <p className="text-sm text-gray-400">Receive notifications for detected threats</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-gray-700 pt-6">
+                      <h3 className="text-lg font-medium text-white mb-4">Scanning Engine Settings</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-white font-medium">ClamAV Engine</h4>
+                            <p className="text-sm text-gray-400">Use ClamAV for virus detection</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" defaultChecked />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-white font-medium">Code Analysis</h4>
+                            <p className="text-sm text-gray-400">Scan code files for security vulnerabilities</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" defaultChecked />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-white font-medium">VirusTotal Integration</h4>
+                            <p className="text-sm text-gray-400">Check files with VirusTotal database</p>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" className="sr-only peer" />
